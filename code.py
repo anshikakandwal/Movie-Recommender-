@@ -9,18 +9,19 @@ from sklearn.metrics.pairwise import cosine_similarity
 movies_dict = pickle.load(open('movies_dict.pkl', 'rb'))
 movies = pd.DataFrame(movies_dict)
 
-# ---- Create similarity on the fly ----
-# Combine text features for each movie (you can change based on your columns)
-movies['combined'] = (
-    movies['overview'].fillna('') + ' ' +
-    movies['genres'].fillna('') + ' ' +
-    movies['keywords'].fillna('') + ' ' +
-    movies['cast'].fillna('') + ' ' +
-    movies['crew'].fillna('')
-)
+# ---- Create similarity dynamically ----
+# Safely combine available text columns
+if 'tags' in movies.columns:
+    movies['combined'] = movies['tags']
+else:
+    text_cols = [col for col in movies.columns if movies[col].dtype == 'object']
+    movies['combined'] = movies[text_cols].fillna('').agg(' '.join, axis=1)
 
+# Create vector representation
 cv = CountVectorizer(max_features=5000, stop_words='english')
 vectors = cv.fit_transform(movies['combined']).toarray()
+
+# Compute similarity matrix
 similarity = cosine_similarity(vectors)
 
 # ---- Styling ----
@@ -57,9 +58,15 @@ def recommend(movie):
     recommended_posters = []
 
     for i in movies_list:
-        movie_id = movies.iloc[i[0]].movie_id
+        if 'movie_id' in movies.columns:
+            movie_id = movies.iloc[i[0]].movie_id
+        else:
+            movie_id = None
         recommended_movies.append(movies.iloc[i[0]].title)
-        recommended_posters.append(fetch_poster(movie_id))
+        if movie_id:
+            recommended_posters.append(fetch_poster(movie_id))
+        else:
+            recommended_posters.append("https://via.placeholder.com/500x750?text=No+Image")
 
     return recommended_movies, recommended_posters
 
@@ -78,4 +85,3 @@ if st.button("Show Recommendations"):
             with col:
                 st.markdown(f"<h4>{names[idx]}</h4>", unsafe_allow_html=True)
                 st.image(posters[idx], use_container_width=True)
-
