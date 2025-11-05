@@ -1,1 +1,5 @@
+import pickle
+
+# example: saving your similarity object
+pickle.dump(similarity, open('similarity.pkl', 'wb'))
 
